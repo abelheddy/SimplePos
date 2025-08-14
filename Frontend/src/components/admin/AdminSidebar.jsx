@@ -15,8 +15,8 @@ const AdminSidebar = () => {
       icon: '👥',
       subItems: [
         { title: 'Lista de usuarios', path: '/admin/users' },
-        { title: 'Crear usuario', path: '/admin/users/create' },
-        { title: 'Asignar roles', path: '/admin/users/roles' }
+        { title: 'Crear usuario', path: '/admin/users/create' }
+        //{ title: 'Asignar roles', path: '/admin/users/roles' }
       ]
     },
 // Cambiar el texto de "Marcas" a "Gestión de Marcas"
@@ -29,12 +29,7 @@ const AdminSidebar = () => {
     { title: 'Gestión de Marcas', path: '/admin/products/brands' }, // Actualizado
     { title: 'Crear Producto', path: '/admin/products/create' }
   ]
-},
-    {
-      title: 'Configuración',
-      icon: '⚙️',
-      path: '/admin/settings'
-    }
+}
   ];
 
   return (

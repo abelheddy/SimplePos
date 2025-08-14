@@ -29,7 +29,7 @@ api.interceptors.response.use(
       localStorage.removeItem('token');
       localStorage.removeItem('role');
       localStorage.removeItem('email');
-      
+
       // Redirigir a login con mensaje
       if (typeof window !== 'undefined') {
         window.location.href = '/login?session=expired';
@@ -50,5 +50,31 @@ export const productAPI = {
   getCategories: () => api.get('/api/product-categories') // Si tienes este endpoint
 };
 
+// En tu archivo api.js, añade esto al final
+export const salesAPI = {
+  create: async (saleData) => {
+    try {
+      const response = await api.post('/sales', saleData);
+      console.log('Venta creada:', response.data); // Para depuración
+      return response.data;
+    } catch (error) {
+      console.error('Error al crear venta:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  getAll: () => api.get('/sales'),
+  getById: (id) => api.get(`/sales/${id}`),
+  update: (id, saleData) => api.put(`/sales/${id}`, saleData),
+  delete: (id) => api.delete(`/sales/${id}`),
+  getReport: (startDate, endDate) => api.get('/reports/sales', {
+    params: { start: startDate, end: endDate }
+  })
+};
+
+// src/services/api.js (añadir esto al final)
+export const nodeAPI = {
+  getProducts: () => axios.get('http://localhost:3000/api/products'),
+  getProductById: (id) => axios.get(`http://localhost:3000/api/products/${id}`)
+};
 
 export default api;

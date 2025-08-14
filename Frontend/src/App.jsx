@@ -34,6 +34,11 @@ import BrandsPage from './pages/admin/products/BrandsPage'; // Importación aña
 import ProductEditPage from './pages/admin/products/ProductEditPage'; // Importación añadida
 import Taxes from './pages/admin/products/TaxesPage'; // Importación añadida
 
+// Rutas de vendedor
+import SalesPage from './pages/vendedor/sell/SalesPage'; // Importación añadida
+import NewSalePage from './pages/vendedor/sell/NewSalePage';
+
+
 
 
 function AppRoutes() {
@@ -70,6 +75,8 @@ function AppRoutes() {
         </ProtectedRoute>
       }>
         <Route index element={<VendedorDashboardPage />} />
+        <Route path="sales" element={<SalesPage />} />
+        <Route path="sales/new" element={<NewSalePage />} />
       </Route>
 
       {/* Nuevas rutas para consultor */}

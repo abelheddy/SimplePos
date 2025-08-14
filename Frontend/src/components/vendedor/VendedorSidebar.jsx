@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 
 const VendedorSidebar = () => {
-  const [expanded] = useState(true); // Podrías hacerlo colapsable si quieres
+  const [expanded] = useState(true);
 
   const menuItems = [
     { title: 'Dashboard', icon: '📊', path: '/vendedor' },
-    { title: 'Ventas', icon: '💰', path: '/vendedor/ventas' }
+    { title: 'Ventas', icon: '💰', path: '/vendedor/sales' },
+    { title: 'Nueva Venta', icon: '🛒', path: '/vendedor/sales/new' }
   ];
 
   return (
@@ -20,6 +21,7 @@ const VendedorSidebar = () => {
             <li key={index}>
               <NavLink
                 to={item.path}
+                end={item.path === '/vendedor'}
                 className={({ isActive }) => 
                   `flex items-center p-3 rounded-lg hover:bg-green-700 ${isActive ? 'bg-green-600' : ''}`
                 }

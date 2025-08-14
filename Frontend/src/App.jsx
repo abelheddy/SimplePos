@@ -27,6 +27,14 @@ import { AuthProvider } from './context/AuthContext';
 
 import DashboardSelector from './components/DashboardSelector'; // Importación añadida
 
+// Rutas de Productos
+import ProductListPage from './pages/admin/products/ProductListPage';
+import ProductCreatePage from './pages/admin/products/ProductCreatePage';
+import BrandsPage from './pages/admin/products/BrandsPage'; // Importación añadida
+import ProductEditPage from './pages/admin/products/ProductEditPage'; // Importación añadida
+import Taxes from './pages/admin/products/TaxesPage'; // Importación añadida
+
+
 
 function AppRoutes() {
   return (
@@ -48,6 +56,11 @@ function AppRoutes() {
         <Route path="users" element={<UserListPage />} />
         <Route path="users/create" element={<UserCreatePage />} />
         <Route path="users/edit/:id" element={<UserEditPage />} />
+        <Route path="products" element={<ProductListPage />} />
+        <Route path="products/create" element={<ProductCreatePage />} />
+        <Route path="products/brands" element={<BrandsPage />} />
+        <Route path="products/edit/:id" element={<ProductEditPage />} />
+        <Route path="taxes" element={<Taxes />} />
       </Route>
 
       {/* Nuevas rutas para vendedor */}

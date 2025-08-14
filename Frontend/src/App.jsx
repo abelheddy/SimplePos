@@ -41,11 +41,15 @@ import NewSalePage from './pages/vendedor/sell/NewSalePage';
 // Rutas del consultor
 import ReportsPage from './pages/consultor/Report/ReportsPage'; // Importación añadida
 
+// Ruta de logaut
+import LogoutPage from './components/auth/LogoutPage'; // Importación añadida
+
 
 function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route path="/logout" element={<LogoutPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/dashboard-selector" element={
         <ProtectedRoute>

@@ -6,8 +6,7 @@ const VendedorSidebar = () => {
 
   const menuItems = [
     { title: 'Dashboard', icon: '📊', path: '/vendedor/dashboard' },
-    { title: 'Ventas', icon: '💰', path: '/vendedor/ventas' },
-    { title: 'Clientes', icon: '👥', path: '/vendedor/clientes' }
+    { title: 'Ventas', icon: '💰', path: '/vendedor/ventas' }
   ];
 
   return (

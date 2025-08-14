@@ -19,15 +19,17 @@ const AdminSidebar = () => {
         { title: 'Asignar roles', path: '/admin/users/roles' }
       ]
     },
-    {
-      title: 'Gestión de Productos',
-      icon: '📦',
-      subItems: [
-        { title: 'Inventario', path: '/admin/products' },
-        { title: 'Categorías', path: '/admin/products/categories' },
-        { title: 'Promociones', path: '/admin/products/promotions' }
-      ]
-    },
+// Cambiar el texto de "Marcas" a "Gestión de Marcas"
+{
+  title: 'Gestión de Productos',
+  icon: '📦',
+  subItems: [
+    { title: 'Inventario', path: '/admin/products' },
+    { title: 'Tipos de IVA', path: '/admin/taxes' },
+    { title: 'Gestión de Marcas', path: '/admin/products/brands' }, // Actualizado
+    { title: 'Crear Producto', path: '/admin/products/create' }
+  ]
+},
     {
       title: 'Configuración',
       icon: '⚙️',

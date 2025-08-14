@@ -5,7 +5,7 @@ const VendedorSidebar = () => {
   const [expanded] = useState(true); // Podrías hacerlo colapsable si quieres
 
   const menuItems = [
-    { title: 'Dashboard', icon: '📊', path: '/vendedor/dashboard' },
+    { title: 'Dashboard', icon: '📊', path: '/vendedor' },
     { title: 'Ventas', icon: '💰', path: '/vendedor/ventas' }
   ];
 

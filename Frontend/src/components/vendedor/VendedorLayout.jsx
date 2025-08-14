@@ -1,7 +1,7 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import VendedorSidebar from './VendedorSidebar';
-import Header from '../layout/Header';
+import Header from '../layout/SellerHeader';
 
 const VendedorLayout = () => {
   return (

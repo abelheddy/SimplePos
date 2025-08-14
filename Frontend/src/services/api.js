@@ -71,6 +71,8 @@ export const salesAPI = {
   })
 };
 
+
+
 // src/services/api.js (añadir esto al final)
 export const nodeAPI = {
   getProducts: () => axios.get('http://localhost:3000/api/products'),

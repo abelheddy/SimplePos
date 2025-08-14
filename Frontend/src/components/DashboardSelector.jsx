@@ -12,7 +12,7 @@ const DashboardSelector = () => {
     case 'vendedor':
       return <Navigate to="/vendedor" replace />;
     case 'consultor':
-      return <Navigate to="/consultor/dashboard" replace />;
+      return <Navigate to="/consultor" replace />;
     default:
       return <Navigate to="/login" replace />;
   }

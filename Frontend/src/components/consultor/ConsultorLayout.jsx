@@ -1,7 +1,7 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import ConsultorSidebar from './ConsultorSidebar';
-import Header from '../layout/Header';
+import Header from '../layout/ConsultHeader';
 
 const ConsultorLayout = () => {
   return (

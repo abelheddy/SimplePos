@@ -38,7 +38,8 @@ import Taxes from './pages/admin/products/TaxesPage'; // Importación añadida
 import SalesPage from './pages/vendedor/sell/SalesPage'; // Importación añadida
 import NewSalePage from './pages/vendedor/sell/NewSalePage';
 
-
+// Rutas del consultor
+import ReportsPage from './pages/consultor/Report/ReportsPage'; // Importación añadida
 
 
 function AppRoutes() {
@@ -86,6 +87,7 @@ function AppRoutes() {
         </ProtectedRoute>
       }>
         <Route index element={<ConsultorDashboardPage />} />
+        <Route path="reports" element={<ReportsPage />} />
       </Route>
 
       <Route path="*" element={<div>Página no encontrada</div>} />

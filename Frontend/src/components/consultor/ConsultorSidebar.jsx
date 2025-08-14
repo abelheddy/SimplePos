@@ -5,9 +5,9 @@ const ConsultorSidebar = () => {
   const [expanded] = useState(true);
 
   const menuItems = [
-    { title: 'Dashboard', icon: '📊', path: '/consultor/dashboard' },
-    { title: 'Reportes', icon: '📈', path: '/consultor/reportes' },
-    { title: 'Estadísticas', icon: '🧮', path: '/consultor/estadisticas' }
+    { title: 'Dashboard', icon: '📊', path: '/consultor' },
+    { title: 'Reportes', icon: '📈', path: '/consultor/reports' }//,
+    //{ title: 'Estadísticas', icon: '🧮', path: '/consultor/estadisticas' }
   ];
 
   return (

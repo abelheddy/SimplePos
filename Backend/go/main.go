@@ -1,10 +1,9 @@
 package main
 
 import (
+	"auth-service/database"
 	"auth-service/handlers"
 	"auth-service/middleware"
-	"auth-service/models"
-	"context"
 	"log"
 	"net/http"
 	"os"
@@ -12,11 +11,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	"github.com/rs/cors"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"golang.org/x/crypto/bcrypt"
 )
 
 func main() {
@@ -30,33 +24,22 @@ func main() {
 	port := getEnv("SERVER_PORT", "8080")
 	serverAddress := host + ":" + port
 
-	// Connect to MongoDB
-	clientOptions := options.Client().ApplyURI(os.Getenv("MONGO_URI"))
-	client, err := mongo.Connect(context.Background(), clientOptions)
-	if err != nil {
-		log.Fatal("MongoDB connection error: ", err)
+	// Connect to MongoDB using the new database package
+	if err := database.Connect(); err != nil {
+		log.Fatalf("MongoDB connection error: %v", err)
 	}
-	defer client.Disconnect(context.Background())
-
-	// Verify connection
-	err = client.Ping(context.Background(), nil)
-	if err != nil {
-		log.Fatal("MongoDB ping failed: ", err)
-	}
-	log.Println("✅ Connected to MongoDB!")
-
-	db := client.Database(os.Getenv("DB_NAME"))
+	defer database.Disconnect()
 
 	// Initialize database (create collections and admin user)
-	if err := initDatabase(db); err != nil {
-		log.Fatal("Database initialization failed: ", err)
+	if err := database.InitializeDB(); err != nil {
+		log.Fatalf("Database initialization failed: %v", err)
 	}
 
-	// Initialize handlers
-	authHandler := handlers.NewAuthHandler(db.Collection("users"))
-	salesHandler := handlers.NewSalesHandler(db.Collection("sales"))
-	roleHandler := handlers.NewRoleHandler(db.Collection("roles"))
-	userHandler := handlers.NewUserHandler(db.Collection("users")) // Nuevo handler
+	// Initialize handlers using the database package
+	authHandler := handlers.NewAuthHandler(database.DB.Collection("users"))
+	salesHandler := handlers.NewSalesHandler(database.DB.Collection("sales"))
+	roleHandler := handlers.NewRoleHandler(database.DB.Collection("roles"))
+	userHandler := handlers.NewUserHandler(database.DB.Collection("users"))
 
 	// Setup router
 	router := mux.NewRouter()
@@ -80,9 +63,6 @@ func main() {
 	// Admin routes
 	adminRouter := authRouter.PathPrefix("/admin").Subrouter()
 	adminRouter.Use(middleware.RoleMiddleware("admin"))
-	// adminRouter.HandleFunc("/users", func(w http.ResponseWriter, r *http.Request) {
-	//     json.NewEncoder(w).Encode(map[string]string{"message": "Admin dashboard"})
-	// }).Methods("GET", "OPTIONS")
 
 	// User management endpoints
 	adminRouter.HandleFunc("/users", userHandler.ListUsers).Methods("GET", "OPTIONS")
@@ -139,103 +119,4 @@ func getEnv(key, defaultValue string) string {
 		return defaultValue
 	}
 	return value
-}
-
-// Función para inicializar la base de datos
-func initDatabase(db *mongo.Database) error {
-	ctx := context.Background()
-
-	// Crear colecciones si no existen
-	collections := []string{"users", "sales", "roles"}
-	for _, collName := range collections {
-		err := db.CreateCollection(ctx, collName)
-		if err != nil {
-			// Ignorar error si la colección ya existe (código 48)
-			if cmdErr, ok := err.(mongo.CommandError); ok && cmdErr.Code == 48 {
-				log.Printf("✅ Collection already exists: %s", collName)
-				continue
-			}
-			return err
-		}
-		log.Printf("✅ Created collection: %s", collName)
-	}
-
-	rolesCollection := db.Collection("roles")
-	usersCollection := db.Collection("users")
-
-	// Insertar roles básicos si no existen
-	basicRoles := []models.Role{
-		{
-			Name:        "admin",
-			Permissions: []string{"manage_users", "view_reports", "create_sale"},
-		},
-		{
-			Name:        "vendedor",
-			Permissions: []string{"create_sale"},
-		},
-		{
-			Name:        "consultor",
-			Permissions: []string{"view_reports"},
-		},
-	}
-
-	rolesMap := make(map[string]primitive.ObjectID)
-	for _, role := range basicRoles {
-		var existingRole models.Role
-		err := rolesCollection.FindOne(ctx, bson.M{"name": role.Name}).Decode(&existingRole)
-
-		if err == mongo.ErrNoDocuments {
-			res, err := rolesCollection.InsertOne(ctx, role)
-			if err != nil {
-				return err
-			}
-			roleID := res.InsertedID.(primitive.ObjectID)
-			rolesMap[role.Name] = roleID
-			log.Printf("✅ Created role: %s", role.Name)
-		} else if err != nil {
-			return err
-		} else {
-			rolesMap[role.Name] = existingRole.ID
-		}
-	}
-
-	// Crear usuario admin si no existe
-	adminEmail := os.Getenv("ADMIN_EMAIL")
-	if adminEmail == "" {
-		adminEmail = "admin@system.com"
-	}
-
-	adminPassword := os.Getenv("ADMIN_PASSWORD")
-	if adminPassword == "" {
-		adminPassword = "AdminPassword123"
-	}
-
-	var existingUser models.User
-	err := usersCollection.FindOne(ctx, bson.M{"email": adminEmail}).Decode(&existingUser)
-
-	if err == mongo.ErrNoDocuments {
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
-		if err != nil {
-			return err
-		}
-
-		adminUser := models.User{
-			Name:     "System Admin",
-			Email:    adminEmail,
-			Password: string(hashedPassword),
-			RoleID:   rolesMap["admin"],
-		}
-
-		_, err = usersCollection.InsertOne(ctx, adminUser)
-		if err != nil {
-			return err
-		}
-		log.Printf("✅ Created admin user: %s", adminEmail)
-	} else if err != nil {
-		return err
-	} else {
-		log.Printf("✅ Admin user already exists: %s", adminEmail)
-	}
-
-	return nil
 }

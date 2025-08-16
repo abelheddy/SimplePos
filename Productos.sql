@@ -15,9 +15,9 @@ CREATE TABLE ivas (
 -- Tabla: Productos (telefonía)
 CREATE TABLE productos (
     id_producto SERIAL PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,            -- Ej: "iPhone 15"
+    nombre VARCHAR(100) NOT NULL,            
     descripcion TEXT,
-    modelo VARCHAR(100),                     -- Ej: "A3100"
+    modelo VARCHAR(100),                     
     precio_compra DECIMAL(10, 2) NOT NULL,
     precio_venta DECIMAL(10, 2) NOT NULL,
     sku VARCHAR(50) UNIQUE,
@@ -51,7 +51,7 @@ CREATE TABLE imagenes_producto (
 CREATE TABLE especificaciones (
     id_especificacion SERIAL PRIMARY KEY,
     id_producto INT,
-    atributo VARCHAR(100) NOT NULL,         -- Ej: "Pantalla", "RAM", "Almacenamiento"
-    valor VARCHAR(255) NOT NULL,            -- Ej: "6.1 pulgadas", "8 GB", "128 GB"
+    atributo VARCHAR(100) NOT NULL,         
+    valor VARCHAR(255) NOT NULL,            
     FOREIGN KEY (id_producto) REFERENCES productos(id_producto)
 );

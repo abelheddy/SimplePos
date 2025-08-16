@@ -119,7 +119,7 @@ const ProductListPage = () => {
 
           <div className="flex gap-3">
             <Link
-              to="/admin/products/categories"
+              to="/admin/products/brands"
               className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg whitespace-nowrap"
             >
               Marcas

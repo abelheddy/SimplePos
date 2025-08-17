@@ -7,7 +7,7 @@ const API_URL = 'http://localhost:8080';
 
 const LoginForm = () => {
   const [credentials, setCredentials] = useState({
-    email: '', // Cambiado de username a email
+    email: '',
     password: ''
   });
   const [loading, setLoading] = useState(false);
@@ -29,35 +29,36 @@ const LoginForm = () => {
     setError('');
 
     try {
-      // Enviar credenciales al endpoint /login
       const response = await axios.post(`${API_URL}/login`, credentials);
       
-      // Extraer token de la respuesta
+      // Verifica la estructura de la respuesta
+      console.log("Respuesta completa:", response);
+      
+      // Asegúrate de extraer correctamente el token
       const token = response.data.token;
       
-      // Obtener información del usuario del token
-      const decodedToken = JSON.parse(atob(token.split('.')[1]));
-      const userEmail = decodedToken.sub;
-      const userRole = decodedToken.role;
-      
-      // Llamar a la función de login del contexto
-      login({
-        token,
-        email: userEmail,
-        role: userRole
-      });
+      // Validación adicional del token
+      if (!token || typeof token !== 'string') {
+        throw new Error('Token inválido recibido del servidor');
+      }
+
+      // Solo pasa el token al contexto
+      login(token);
 
       navigate('/dashboard-selector');
     } catch (error) {
+      console.error("Error completo:", error);
+      
       if (error.response) {
-        // Manejar errores específicos del backend
         if (error.response.status === 401) {
           setError('Credenciales incorrectas');
-        } else if (error.response.data) {
-          setError(error.response.data);
+        } else if (error.response.data && error.response.data.message) {
+          setError(error.response.data.message);
         } else {
           setError('Error en el servidor');
         }
+      } else if (error.message) {
+        setError(error.message);
       } else {
         setError('Error de conexión con el servidor');
       }

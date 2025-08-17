@@ -1,20 +1,23 @@
+// src/components/common/DynamicHeader.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 /**
- * Componente AdminHeader - Encabezado para el panel de administración
+ * Componente DynamicHeader - Encabezado universal que se adapta al rol del usuario
  * 
  * Características:
+ * - Muestra el rol real del usuario (admin, vendedor, consultor)
  * - Botón para regresar al menú de selección de paneles
- * - Menú desplegable de usuario con opciones de perfil y logout
- * - Indicador visual del rol actual
- * - Funcionalidad para cerrar el menú al hacer clic fuera
+ * - Se adapta visualmente al rol del usuario
+ * - Funcional para todos los paneles
  * 
- * @returns {JSX.Element} Elemento JSX del encabezado de administración
+ * @param {Object} props - Propiedades del componente
+ * @param {string} props.panelTitle - Título del panel actual
+ * @returns {JSX.Element} Elemento JSX del encabezado dinámico
  */
-const AdminHeader = () => {
-  const { isAuthenticated, userData, logout } = useAuth();
+const DynamicHeader = ({ panelTitle }) => {
+  const { isAuthenticated, userData, logout, role } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -40,6 +43,42 @@ const AdminHeader = () => {
     window.location.href = '/login';
   };
 
+  // Configuración visual basada en el rol
+  const getRoleConfig = () => {
+    switch(role) {
+      case 'admin':
+        return {
+          roleLabel: 'Administrador',
+          avatarBg: 'from-blue-500 to-purple-600',
+          dotColor: 'bg-blue-500',
+          panelTitle: panelTitle || 'Panel de Administración'
+        };
+      case 'vendedor':
+        return {
+          roleLabel: 'Vendedor',
+          avatarBg: 'from-green-500 to-teal-600',
+          dotColor: 'bg-green-500',
+          panelTitle: panelTitle || 'Panel de Vendedor'
+        };
+      case 'consultor':
+        return {
+          roleLabel: 'Consultor',
+          avatarBg: 'from-yellow-500 to-orange-500',
+          dotColor: 'bg-yellow-500',
+          panelTitle: panelTitle || 'Panel de Consultor'
+        };
+      default:
+        return {
+          roleLabel: 'Usuario',
+          avatarBg: 'from-gray-500 to-gray-700',
+          dotColor: 'bg-gray-500',
+          panelTitle: panelTitle || 'Panel del Sistema'
+        };
+    }
+  };
+
+  const roleConfig = getRoleConfig();
+
   return (
     <header className="bg-white shadow-sm z-10 sticky top-0">
       <div className="flex justify-between items-center px-6 py-4">
@@ -58,7 +97,7 @@ const AdminHeader = () => {
           
           {/* Título del panel */}
           <h1 className="text-xl font-semibold text-gray-800 hidden md:block">
-            Panel de Administración
+            {roleConfig.panelTitle}
           </h1>
         </div>
         
@@ -80,18 +119,18 @@ const AdminHeader = () => {
               aria-haspopup="true"
             >
               {/* Avatar del usuario */}
-              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white shadow-md">
-                {userData?.email?.charAt(0).toUpperCase() || 'A'}
+              <div className={`w-10 h-10 rounded-full bg-gradient-to-r ${roleConfig.avatarBg} flex items-center justify-center text-white shadow-md`}>
+                {userData?.email?.charAt(0).toUpperCase() || roleConfig.roleLabel.charAt(0)}
               </div>
               
               {/* Información del usuario */}
               <div className="text-left hidden md:block">
                 <p className="text-sm font-medium text-gray-900 truncate max-w-[120px]">
-                  {userData?.name || 'Administrador'}
+                  {userData?.name || roleConfig.roleLabel}
                 </p>
                 <p className="text-xs text-gray-500 flex items-center">
-                  <span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-1"></span>
-                  Administrador
+                  <span className={`inline-block w-2 h-2 rounded-full ${roleConfig.dotColor} mr-1`}></span>
+                  {roleConfig.roleLabel}
                 </p>
               </div>
             </button>
@@ -105,17 +144,17 @@ const AdminHeader = () => {
                 {/* Sección de información del usuario */}
                 <div className="px-4 py-3">
                   <p className="text-sm font-medium text-gray-900 truncate">
-                    {userData?.name || 'Administrador'}
+                    {userData?.name || roleConfig.roleLabel}
                   </p>
                   <p className="text-sm text-gray-500 truncate">
-                    {userData?.email || 'admin@system.com'}
+                    {userData?.email || `${role}@system.com`}
                   </p>
                 </div>
                 
                 {/* Sección de acciones */}
                 <div className="py-1">
                   <Link 
-                    to="/profile" 
+                    to="/perfil" 
                     className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                     onClick={() => setIsMenuOpen(false)}
                     role="menuitem"
@@ -161,4 +200,4 @@ const AdminHeader = () => {
   );
 };
 
-export default AdminHeader;
+export default DynamicHeader;

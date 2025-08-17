@@ -132,19 +132,16 @@ const UserListPage = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {isAdmin && (
-                        <>
-                          <Link
-                            to={`/admin/users/edit/${user.id}`}
-                            className="text-blue-600 hover:text-blue-900 mr-3 transition-colors"
-                          >
-                            Editar
-                          </Link>
-                          <button className="text-red-600 hover:text-red-900 transition-colors">
-                            Eliminar
-                          </button>
-                        </>
-                      )}
+                      {/* REMOVER la condición isAdmin */}
+                      <Link
+                        to={`/admin/users/edit/${user.id}`}
+                        className="text-blue-600 hover:text-blue-900 mr-3 transition-colors"
+                      >
+                        Editar
+                      </Link>
+                      <button className="text-red-600 hover:text-red-900 transition-colors">
+                        Eliminar
+                      </button>
                     </td>
                   </tr>
                 ))

@@ -15,28 +15,28 @@ const AdminSidebar = () => {
       icon: '👥',
       subItems: [
         { title: 'Lista de usuarios', path: '/admin/users' },
-        { title: 'Crear usuario', path: '/admin/users/create' }
-        //{ title: 'Asignar roles', path: '/admin/users/roles' }
+        { title: 'Crear usuario', path: '/admin/users/create' },
+        { title: 'Gestión de roles', path: '/admin/users/roles' }
       ]
     },
-// Cambiar el texto de "Marcas" a "Gestión de Marcas"
-{
-  title: 'Gestión de Productos',
-  icon: '📦',
-  subItems: [
-    { title: 'Inventario', path: '/admin/products' },
-    { title: 'Tipos de IVA', path: '/admin/taxes' },
-    { title: 'Gestión de Marcas', path: '/admin/products/brands' }, // Actualizado
-    { title: 'Crear Producto', path: '/admin/products/create' }
-  ]
-}
+    // Cambiar el texto de "Marcas" a "Gestión de Marcas"
+    {
+      title: 'Gestión de Productos',
+      icon: '📦',
+      subItems: [
+        { title: 'Inventario', path: '/admin/products' },
+        { title: 'Tipos de IVA', path: '/admin/taxes' },
+        { title: 'Gestión de Marcas', path: '/admin/products/brands' }, // Actualizado
+        { title: 'Crear Producto', path: '/admin/products/create' }
+      ]
+    }
   ];
 
   return (
     <div className={`bg-blue-800 text-white h-full ${expanded ? 'w-64' : 'w-20'} transition-all duration-300 flex flex-col`}>
       <div className="p-4 flex justify-between items-center">
         {expanded && <h2 className="text-xl font-bold">Admin Panel</h2>}
-        <button 
+        <button
           onClick={() => setExpanded(!expanded)}
           className="p-2 rounded-lg hover:bg-blue-700"
         >
@@ -50,7 +50,7 @@ const AdminSidebar = () => {
               {item.path ? (
                 <NavLink
                   to={item.path}
-                  className={({ isActive }) => 
+                  className={({ isActive }) =>
                     `flex items-center p-3 rounded-lg hover:bg-blue-700 ${isActive ? 'bg-blue-600' : ''}`
                   }
                 >
@@ -69,7 +69,7 @@ const AdminSidebar = () => {
                         <li key={subIndex}>
                           <NavLink
                             to={subItem.path}
-                            className={({ isActive }) => 
+                            className={({ isActive }) =>
                               `block p-2 rounded-lg hover:bg-blue-700 ${isActive ? 'bg-blue-600' : ''}`
                             }
                           >

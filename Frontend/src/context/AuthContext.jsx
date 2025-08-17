@@ -1,77 +1,80 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+// src/context/AuthContext.js
+import { createContext, useState, useEffect, useContext } from 'react';
+import { jwtDecode } from 'jwt-decode'; // Importación corregida
 
 const AuthContext = createContext();
 
-export function AuthProvider({ children }) {
-  const [authState, setAuthState] = useState({
-    isAuthenticated: false,
-    role: null, // Asegúrate de que esto está presente
-    userData: null,
-    loading: true
-  });
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const role = localStorage.getItem('role');
-    const email = localStorage.getItem('email');
+    const loadUser = () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setLoading(false);
+        return;
+      }
 
-    if (token && role && email) {
-      setAuthState({
-        isAuthenticated: true,
-        role: role,
-        userData: { email },
-        loading: false
-      });
-    } else {
-      setAuthState({
-        isAuthenticated: false,
-        role: null,
-        userData: null,
-        loading: false
-      });
-    }
+      try {
+        const decoded = jwtDecode(token);
+        
+        // Verificar expiración del token
+        if (decoded.exp * 1000 < Date.now()) {
+          throw new Error('Token expirado');
+        }
+        
+        setUser({
+          id: decoded.id,
+          email: decoded.email,
+          role: decoded.role,
+          name: decoded.name,
+        });
+      } catch (error) {
+        console.error('Error de autenticación:', error);
+        localStorage.removeItem('token');
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUser();
   }, []);
 
-  const login = (data) => {
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('role', data.role);
-    localStorage.setItem('email', data.email);
-
-    setAuthState({
-      isAuthenticated: true,
-      role: data.role,
-      userData: {
-        email: data.email
-      },
-      loading: false
-    });
+  const login = (token) => {
+    localStorage.setItem('token', token);
+    try {
+      const decoded = jwtDecode(token);
+      setUser({
+        id: decoded.id,
+        email: decoded.email,
+        role: decoded.role,
+        name: decoded.name,
+      });
+    } catch (error) {
+      console.error('Error al iniciar sesión:', error);
+      logout();
+    }
   };
 
   const logout = () => {
     localStorage.removeItem('token');
-    localStorage.removeItem('role');
-    localStorage.removeItem('email');
-    setAuthState({
-      isAuthenticated: false,
-      role: null,
-      userData: null,
-      loading: false
-    });
+    setUser(null);
   };
 
   return (
     <AuthContext.Provider value={{
-      ...authState,
+      isAuthenticated: !!user,
+      user,
+      loading,
+      role: user?.role,
       login,
       logout,
-      // Añade estos helpers para mayor claridad
-      isAdmin: authState.role === 'admin',
-      isVendedor: authState.role === 'vendedor',
-      isConsultor: authState.role === 'consultor'
     }}>
       {children}
     </AuthContext.Provider>
   );
-}
+};
 
 export const useAuth = () => useContext(AuthContext);

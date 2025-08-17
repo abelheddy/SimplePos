@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { nodeAPI } from '../../../services/api'; // Ajusta la ruta según tu estructura
 
 const BrandsPage = () => {
   const [brands, setBrands] = useState([]);
@@ -15,17 +16,12 @@ const BrandsPage = () => {
   const fetchBrands = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:3000/api/brands');
-      
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      setBrands(data);
+      const response = await nodeAPI.brands.getAll();
+      setBrands(response.data);
+      setError(null);
     } catch (err) {
       console.error('Error fetching brands:', err);
-      setError(err.message);
+      setError(err.response?.data?.error || err.message || 'Error al cargar marcas');
     } finally {
       setLoading(false);
     }
@@ -35,24 +31,12 @@ const BrandsPage = () => {
     if (!newBrand.nombre.trim()) return;
     
     try {
-      const response = await fetch('http://localhost:3000/api/brands', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newBrand)
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      setBrands([...brands, data]);
+      const response = await nodeAPI.brands.create(newBrand);
+      setBrands([...brands, response.data]);
       setNewBrand({ nombre: '', descripcion: '' });
     } catch (err) {
       console.error('Error adding brand:', err);
-      alert(`Error al agregar marca: ${err.message}`);
+      alert(`Error al agregar marca: ${err.response?.data?.error || err.message}`);
     }
   };
 
@@ -66,26 +50,14 @@ const BrandsPage = () => {
 
   const saveEdit = async (id) => {
     try {
-      const response = await fetch(`http://localhost:3000/api/brands/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(editValue)
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
-      
-      const updatedBrand = await response.json();
+      const response = await nodeAPI.brands.update(id, editValue);
       setBrands(brands.map(b => 
-        b.id_marca === id ? { ...b, ...updatedBrand } : b
+        b.id_marca === id ? { ...b, ...response.data } : b
       ));
       setEditingId(null);
     } catch (err) {
       console.error('Error updating brand:', err);
-      alert(`Error al actualizar marca: ${err.message}`);
+      alert(`Error al actualizar marca: ${err.response?.data?.error || err.message}`);
     }
   };
 
@@ -93,19 +65,11 @@ const BrandsPage = () => {
     if (!window.confirm('¿Estás seguro de eliminar esta marca?')) return;
     
     try {
-      const response = await fetch(`http://localhost:3000/api/brands/${id}`, {
-        method: 'DELETE'
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Error ${response.status}`);
-      }
-      
+      await nodeAPI.brands.delete(id);
       setBrands(brands.filter(brand => brand.id_marca !== id));
     } catch (err) {
       console.error('Error deleting brand:', err);
-      alert('No se puede eliminar: ' + err.message);
+      alert('No se puede eliminar: ' + (err.response?.data?.error || err.message));
     }
   };
 

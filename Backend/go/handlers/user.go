@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -43,7 +44,7 @@ func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 
 	// Obtener la colección de roles
 	rolesCollection := h.collection.Database().Collection("roles")
-	
+
 	// Crear un slice para la respuesta
 	type UserResponse struct {
 		ID    string `json:"id"`
@@ -51,7 +52,7 @@ func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 		Email string `json:"email"`
 		Role  string `json:"role"`
 	}
-	
+
 	var response []UserResponse
 
 	for _, user := range users {
@@ -209,6 +210,14 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(response)
+	// Registrar actividad
+	activityCollection := h.collection.Database().Collection("activities")
+	LogActivity(
+		activityCollection,
+		user.ID,
+		user.Email,
+		models.ActivityNewUser,
+	)
 }
 
 // UpdateUserHandler maneja la actualización de usuarios
@@ -340,4 +349,155 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// GetProfileHandler maneja la obtención del perfil del usuario autenticado
+func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
+	token := r.Context().Value("token").(*jwt.Token)
+	claims := token.Claims.(jwt.MapClaims)
+	userEmail := claims["sub"].(string)
+
+	ctx := context.Background()
+
+	var user models.User
+	err := h.collection.FindOne(ctx, bson.M{"email": userEmail}).Decode(&user)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "Error fetching user", http.StatusInternalServerError)
+		return
+	}
+
+	// Obtener nombre del rol
+	rolesCollection := h.collection.Database().Collection("roles")
+	var role models.Role
+	err = rolesCollection.FindOne(ctx, bson.M{"_id": user.RoleID}).Decode(&role)
+	roleName := "unknown"
+	if err == nil {
+		roleName = role.Name
+	}
+
+	// Respuesta sin contraseña
+	response := struct {
+		ID    string `json:"id"`
+		Name  string `json:"name"`
+		Email string `json:"email"`
+		Role  string `json:"role"`
+	}{
+		ID:    user.ID.Hex(),
+		Name:  user.Name,
+		Email: user.Email,
+		Role:  roleName,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// UpdateProfileHandler maneja la actualización del perfil del usuario autenticado
+func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	token := r.Context().Value("token").(*jwt.Token)
+	claims := token.Claims.(jwt.MapClaims)
+	userEmail := claims["sub"].(string)
+
+	ctx := context.Background()
+
+	// Obtener usuario existente
+	var existingUser models.User
+	err := h.collection.FindOne(ctx, bson.M{"email": userEmail}).Decode(&existingUser)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "Error fetching user", http.StatusInternalServerError)
+		return
+	}
+
+	var updateData struct {
+		Name            string `json:"name"`
+		Email           string `json:"email"`
+		Password        string `json:"password"`        // Opcional: para cambiar contraseña
+		CurrentPassword string `json:"currentPassword"` // Para verificar al cambiar contraseña
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&updateData); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validar la contraseña actual si se quiere cambiar la contraseña
+	if updateData.Password != "" {
+		if updateData.CurrentPassword == "" {
+			http.Error(w, "Current password is required to change password", http.StatusBadRequest)
+			return
+		}
+
+		if err := bcrypt.CompareHashAndPassword([]byte(existingUser.Password), []byte(updateData.CurrentPassword)); err != nil {
+			http.Error(w, "Current password is incorrect", http.StatusUnauthorized)
+			return
+		}
+
+		// Hash de la nueva contraseña
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(updateData.Password), bcrypt.DefaultCost)
+		if err != nil {
+			http.Error(w, "Error updating password", http.StatusInternalServerError)
+			return
+		}
+		existingUser.Password = string(hashedPassword)
+	}
+
+	// Actualizar campos
+	if updateData.Name != "" {
+		existingUser.Name = updateData.Name
+	}
+
+	if updateData.Email != "" && updateData.Email != existingUser.Email {
+		// Verificar que el nuevo email no esté en uso
+		var anotherUser models.User
+		err := h.collection.FindOne(ctx, bson.M{"email": updateData.Email}).Decode(&anotherUser)
+		if err == nil {
+			http.Error(w, "Email already in use", http.StatusConflict)
+			return
+		} else if err != mongo.ErrNoDocuments {
+			http.Error(w, "Error checking email", http.StatusInternalServerError)
+			return
+		}
+		existingUser.Email = updateData.Email
+	}
+
+	// Actualizar en la base de datos
+	update := bson.M{
+		"$set": bson.M{
+			"name":     existingUser.Name,
+			"email":    existingUser.Email,
+			"password": existingUser.Password,
+		},
+	}
+
+	_, err = h.collection.UpdateOne(
+		ctx,
+		bson.M{"_id": existingUser.ID},
+		update,
+	)
+	if err != nil {
+		http.Error(w, "Error updating user: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Respuesta sin contraseña
+	response := struct {
+		ID    string `json:"id"`
+		Name  string `json:"name"`
+		Email string `json:"email"`
+	}{
+		ID:    existingUser.ID.Hex(),
+		Name:  existingUser.Name,
+		Email: existingUser.Email,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }

@@ -1,3 +1,4 @@
+// raiz->handlers->sales.go
 package handlers
 
 import (
@@ -36,32 +37,42 @@ type saleRequest struct {
 	Items []saleRequestItem `json:"items" bson:"items"`
 }
 
+// CreateSale maneja la creación de nuevas ventas
+// Permite acceso a roles: vendedor y admin
 func (h *SalesHandler) CreateSale(w http.ResponseWriter, r *http.Request) {
 	// 1. Verificación de autenticación
 	token := r.Context().Value("token").(*jwt.Token)
 	claims := token.Claims.(jwt.MapClaims)
 
 	userRole, ok := claims["role"].(string)
-	if !ok || userRole != "vendedor" {
-		http.Error(w, "Only sellers can create sales", http.StatusForbidden)
+	if !ok || (userRole != "vendedor" && userRole != "admin") {
+		http.Error(w, "Only sellers or admins can create sales", http.StatusForbidden)
 		return
 	}
 
-	sellerID, ok := claims["sub"].(string)
+	sellerEmail, ok := claims["sub"].(string)
 	if !ok {
 		http.Error(w, "Invalid seller information", http.StatusBadRequest)
 		return
 	}
 
-	sellerName, ok := claims["name"].(string)
-	if !ok {
-		sellerName = "Unknown"
+	// Obtener información completa del vendedor
+	ctx := context.Background()
+	usersCollection := h.collection.Database().Collection("users")
+	var seller models.User
+	err := usersCollection.FindOne(ctx, bson.M{"email": sellerEmail}).Decode(&seller)
+	if err != nil {
+		log.Printf("Error fetching seller: %v", err)
+		http.Error(w, "Error fetching seller information", http.StatusInternalServerError)
+		return
 	}
+
+	sellerName := seller.Name
 
 	// 2. Decodificar el cuerpo de la solicitud
 	var req saleRequest
 	body, _ := ioutil.ReadAll(r.Body)
-	log.Printf("Raw request body: %s", string(body)) // Log del cuerpo crudo
+	log.Printf("Raw request body: %s", string(body))
 
 	// Reset body para poder leerlo de nuevo
 	r.Body = ioutil.NopCloser(bytes.NewBuffer(body))
@@ -69,7 +80,7 @@ func (h *SalesHandler) CreateSale(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	log.Printf("Parsed request: %+v", req) // Log de la estructura parseada
+	log.Printf("Parsed request: %+v", req)
 
 	// 3. Validar los items
 	if len(req.Items) == 0 {
@@ -107,14 +118,14 @@ func (h *SalesHandler) CreateSale(w http.ResponseWriter, r *http.Request) {
 		ID:          primitive.NewObjectID(),
 		Items:       saleItems,
 		TotalAmount: totalAmount,
-		SellerID:    sellerID,
+		SellerID:    sellerEmail,
 		SellerName:  sellerName,
 		Timestamp:   time.Now().Unix(),
 		Status:      "completed",
 	}
 
 	// 5. Insertar en MongoDB
-	result, err := h.collection.InsertOne(context.Background(), sale)
+	result, err := h.collection.InsertOne(ctx, sale)
 	if err != nil {
 		log.Printf("Error inserting sale: %v", err)
 		http.Error(w, "Error creating sale in database", http.StatusInternalServerError)
@@ -128,7 +139,16 @@ func (h *SalesHandler) CreateSale(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 7. Retornar respuesta
+	// 7. Registrar actividad
+	activityCollection := h.collection.Database().Collection("activities")
+	LogActivity(
+		activityCollection,
+		seller.ID,
+		seller.Email,
+		models.ActivityNewSale,
+	)
+
+	// 8. Retornar respuesta
 	sale.ID = result.InsertedID.(primitive.ObjectID)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -137,18 +157,26 @@ func (h *SalesHandler) CreateSale(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetSales obtiene el listado de ventas
+// Permite acceso a roles: vendedor y admin
 func (h *SalesHandler) GetSales(w http.ResponseWriter, r *http.Request) {
 	token := r.Context().Value("token").(*jwt.Token)
 	claims := token.Claims.(jwt.MapClaims)
 	userRole := claims["role"].(string)
 
-	if userRole != "vendedor" {
-		http.Error(w, "Only sellers can view sales", http.StatusForbidden)
+	if userRole != "vendedor" && userRole != "admin" {
+		http.Error(w, "Only sellers or admins can view sales", http.StatusForbidden)
 		return
 	}
 
-	sellerID := claims["sub"].(string)
-	cursor, err := h.collection.Find(context.Background(), bson.M{"sellerId": sellerID})
+	var filter bson.M
+	if userRole == "admin" {
+		filter = bson.M{}
+	} else {
+		filter = bson.M{"sellerId": claims["sub"].(string)}
+	}
+
+	cursor, err := h.collection.Find(context.Background(), filter)
 	if err != nil {
 		log.Printf("Error fetching sales: %v", err)
 		http.Error(w, "Error fetching sales", http.StatusInternalServerError)
@@ -169,13 +197,15 @@ func (h *SalesHandler) GetSales(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetSale obtiene los detalles de una venta específica
+// Permite acceso a roles: vendedor y admin
 func (h *SalesHandler) GetSale(w http.ResponseWriter, r *http.Request) {
 	token := r.Context().Value("token").(*jwt.Token)
 	claims := token.Claims.(jwt.MapClaims)
 	userRole := claims["role"].(string)
 
-	if userRole != "vendedor" {
-		http.Error(w, "Only sellers can view sales", http.StatusForbidden)
+	if userRole != "vendedor" && userRole != "admin" {
+		http.Error(w, "Only sellers or admins can view sales", http.StatusForbidden)
 		return
 	}
 
@@ -198,7 +228,7 @@ func (h *SalesHandler) GetSale(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if sale.SellerID != claims["sub"].(string) {
+	if userRole != "admin" && sale.SellerID != claims["sub"].(string) {
 		http.Error(w, "Cannot access this sale", http.StatusForbidden)
 		return
 	}
@@ -209,13 +239,15 @@ func (h *SalesHandler) GetSale(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// UpdateSale actualiza una venta existente
+// Permite acceso a roles: vendedor y admin
 func (h *SalesHandler) UpdateSale(w http.ResponseWriter, r *http.Request) {
 	token := r.Context().Value("token").(*jwt.Token)
 	claims := token.Claims.(jwt.MapClaims)
 	userRole := claims["role"].(string)
 
-	if userRole != "vendedor" {
-		http.Error(w, "Only sellers can update sales", http.StatusForbidden)
+	if userRole != "vendedor" && userRole != "admin" {
+		http.Error(w, "Only sellers or admins can update sales", http.StatusForbidden)
 		return
 	}
 
@@ -238,7 +270,7 @@ func (h *SalesHandler) UpdateSale(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if existingSale.SellerID != claims["sub"].(string) {
+	if userRole != "admin" && existingSale.SellerID != claims["sub"].(string) {
 		http.Error(w, "Cannot update this sale", http.StatusForbidden)
 		return
 	}
@@ -249,7 +281,6 @@ func (h *SalesHandler) UpdateSale(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validar y calcular nuevos items
 	var saleItems []models.SaleItem
 	totalAmount := 0.0
 
@@ -289,7 +320,6 @@ func (h *SalesHandler) UpdateSale(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Actualizar el objeto para la respuesta
 	existingSale.Items = saleItems
 	existingSale.TotalAmount = totalAmount
 	existingSale.Timestamp = time.Now().Unix()
@@ -300,13 +330,15 @@ func (h *SalesHandler) UpdateSale(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// DeleteSale elimina una venta existente
+// Permite acceso a roles: vendedor y admin
 func (h *SalesHandler) DeleteSale(w http.ResponseWriter, r *http.Request) {
 	token := r.Context().Value("token").(*jwt.Token)
 	claims := token.Claims.(jwt.MapClaims)
 	userRole := claims["role"].(string)
 
-	if userRole != "vendedor" {
-		http.Error(w, "Only sellers can delete sales", http.StatusForbidden)
+	if userRole != "vendedor" && userRole != "admin" {
+		http.Error(w, "Only sellers or admins can delete sales", http.StatusForbidden)
 		return
 	}
 
@@ -329,7 +361,7 @@ func (h *SalesHandler) DeleteSale(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if sale.SellerID != claims["sub"].(string) {
+	if userRole != "admin" && sale.SellerID != claims["sub"].(string) {
 		http.Error(w, "Cannot delete this sale", http.StatusForbidden)
 		return
 	}
@@ -344,23 +376,23 @@ func (h *SalesHandler) DeleteSale(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// GetSalesReport genera reportes de ventas
+// Permite acceso a roles: consultor y admin
 func (h *SalesHandler) GetSalesReport(w http.ResponseWriter, r *http.Request) {
 	token := r.Context().Value("token").(*jwt.Token)
 	claims := token.Claims.(jwt.MapClaims)
 	userRole := claims["role"].(string)
 
-	if userRole != "consultor" {
-		http.Error(w, "Only consultants can generate reports", http.StatusForbidden)
+	if userRole != "consultor" && userRole != "admin" {
+		http.Error(w, "Only consultants or admins can generate reports", http.StatusForbidden)
 		return
 	}
 
-	// Get date parameters
 	startDateStr := r.URL.Query().Get("start")
 	endDateStr := r.URL.Query().Get("end")
 
 	var filter bson.M = bson.M{"status": "completed"}
 
-	// Date filtering
 	if startDateStr != "" && endDateStr != "" {
 		startDate, err := time.Parse("2006-01-02", startDateStr)
 		if err != nil {
@@ -374,7 +406,6 @@ func (h *SalesHandler) GetSalesReport(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Adjust end date to include entire day
 		endDate = endDate.Add(24 * time.Hour)
 
 		filter["timestamp"] = bson.M{
@@ -398,14 +429,12 @@ func (h *SalesHandler) GetSalesReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Calculate totals
 	totalSales := len(sales)
 	totalAmount := 0.0
 	for _, sale := range sales {
 		totalAmount += sale.TotalAmount
 	}
 
-	// Create response
 	response := struct {
 		TotalSales  int           `json:"totalSales"`
 		TotalAmount float64       `json:"totalAmount"`

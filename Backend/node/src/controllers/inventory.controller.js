@@ -52,3 +52,19 @@ exports.createOrUpdateInventory = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+
+exports.getInventoryByProduct = async (req, res) => {
+  try {
+    const productId = req.params.id;
+    const inventory = await Inventory.getByProductId(productId);
+    
+    if (!inventory || inventory.length === 0) {
+      return res.status(404).json({ message: 'No se encontró inventario para este producto' });
+    }
+    
+    res.json(inventory);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};

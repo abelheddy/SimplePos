@@ -18,11 +18,10 @@ func InitializeDB() error {
 	ctx := context.Background()
 
 	// Crear colecciones si no existen
-	collections := []string{"users", "sales", "roles"}
+	collections := []string{"users", "sales", "roles", "activities"}
 	for _, collName := range collections {
 		err := DB.CreateCollection(ctx, collName)
 		if err != nil {
-			// Ignorar error si la colección ya existe
 			if cmdErr, ok := err.(mongo.CommandError); ok && cmdErr.Code == 48 {
 				log.Printf("✅ Colección ya existe: %s", collName)
 				continue

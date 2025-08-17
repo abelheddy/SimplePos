@@ -47,6 +47,17 @@ const Inventory = {
     } catch (error) {
       throw error;
     }
+  },
+    async getByProductId(productId) {
+    try {
+      const { rows } = await pool.query(
+        'SELECT * FROM inventario WHERE id_producto = $1',
+        [productId]
+      );
+      return rows;
+    } catch (error) {
+      throw error;
+    }
   }
 };
 

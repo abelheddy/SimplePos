@@ -15,8 +15,8 @@ const AdminSidebar = () => {
       icon: '👥',
       subItems: [
         { title: 'Lista de usuarios', path: '/admin/users' },
-        { title: 'Crear usuario', path: '/admin/users/create' },
-        { title: 'Gestión de roles', path: '/admin/users/roles' }
+        { title: 'Crear usuario', path: '/admin/users/create' }
+        //{ title: 'Gestión de roles', path: '/admin/users/roles' }
       ]
     },
     // Cambiar el texto de "Marcas" a "Gestión de Marcas"

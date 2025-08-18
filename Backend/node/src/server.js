@@ -5,7 +5,7 @@ const PORT = 3000;
 
 // Configuración de CORS (debe ir al inicio)
 const corsOptions = {
-  origin: ['http://localhost:5173', 'http://localhost:3000'], // frontend y backend
+  origin: ['http://localhost:5173'], // frontend y backend
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true

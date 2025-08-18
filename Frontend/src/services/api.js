@@ -183,7 +183,9 @@ export const nodeAPI = {
     getByProduct: (productId) => nodeApi.get(`/inventory/product/${productId}`),
     getAll: () => nodeApi.get('/inventory'),
     getById: (id) => nodeApi.get(`/inventory/${id}`),
-    delete: (id) => nodeApi.delete(`/inventory/${id}`)
+    delete: (id) => nodeApi.delete(`/inventory/${id}`),
+    decrement: (productId, quantity) =>
+      nodeApi.put(`/inventory/decrement/${productId}`, { quantity })
   },
 
   // Alias para compatibilidad

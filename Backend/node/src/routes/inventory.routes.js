@@ -8,5 +8,7 @@ router.put('/product/:id', inventoryController.updateInventoryByProduct);
 router.post('/update', inventoryController.createOrUpdateInventory);
 // Obtener inventario por producto (NUEVA RUTA)
 router.get('/product/:id', inventoryController.getInventoryByProduct);
+// Agregar al final del archivo
+router.put('/decrement/:id', inventoryController.decrementStock);
 
 module.exports = router;

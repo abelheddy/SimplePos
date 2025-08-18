@@ -13,12 +13,12 @@ const Inventory = {
     }
   },
 
-    async updateByProductId(productId, updateData) {
+  async updateByProductId(productId, updateData) {
     try {
       // Verificar si existe un registro de inventario para este producto
       const checkQuery = 'SELECT id_inventario FROM inventario WHERE id_producto = $1';
       const checkResult = await pool.query(checkQuery, [productId]);
-      
+
       let result;
       if (checkResult.rows.length > 0) {
         // Actualizar si existe
@@ -37,24 +37,38 @@ const Inventory = {
           RETURNING *
         `;
         result = await pool.query(insertQuery, [
-          productId, 
-          updateData.cantidad, 
+          productId,
+          updateData.cantidad,
           updateData.ubicacion || 'Almacén principal'
         ]);
       }
-      
+
       return result.rows[0];
     } catch (error) {
       throw error;
     }
   },
-    async getByProductId(productId) {
+  async getByProductId(productId) {
     try {
       const { rows } = await pool.query(
         'SELECT * FROM inventario WHERE id_producto = $1',
         [productId]
       );
       return rows;
+    } catch (error) {
+      throw error;
+    }
+  },
+  async decrementStock(productId, quantity) {
+    try {
+      const { rows } = await pool.query(`
+      UPDATE inventario 
+      SET cantidad = cantidad - $1 
+      WHERE id_producto = $2 
+      RETURNING *
+    `, [quantity, productId]);
+
+      return rows[0];
     } catch (error) {
       throw error;
     }

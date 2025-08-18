@@ -1,16 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { salesAPI } from '../../services/api';
 import SaleItem from './SaleItem';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { 
+  FiPlus, 
+  FiSearch, 
+  FiX, 
+  FiRefreshCw, 
+  FiBarChart2,
+  FiShoppingBag
+} from 'react-icons/fi';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const SalesList = () => {
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [deletingId, setDeletingId] = useState(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Cargar ventas con manejo de errores mejorado
   const fetchSales = async () => {
@@ -19,21 +28,55 @@ const SalesList = () => {
       setError('');
       const response = await salesAPI.getAll();
       
-      if (!response.data) {
-        throw new Error('No se recibieron datos de ventas');
+      console.log('API Response:', response); 
+      console.log('Response data:', response.data);
+      
+      // Manejo flexible de la estructura de respuesta
+      let salesData = [];
+      if (Array.isArray(response.data)) {
+        salesData = response.data;
+      } else if (response.data && Array.isArray(response.data.sales)) {
+        salesData = response.data.sales;
+      } else {
+        console.warn('Formato inesperado de respuesta:', response.data);
+        salesData = [];
       }
+      
+      console.log('Sales data (raw):', salesData);
+      
+      // Filtrar ventas con ID válido (acepta _id o id)
+      const validSales = salesData.filter(sale => sale && (sale._id || sale.id));
+      
+      console.log('Valid sales:', validSales);
+      
+      // Normalizar datos para ventas válidas
+      const normalizedSales = validSales.map(sale => {
+        // Asegurar que tenemos _id (si viene como id, lo copiamos a _id)
+        const saleId = sale._id || sale.id;
+        
+        // Calcular cantidad total de productos
+        const totalQuantity = sale.items?.reduce((total, item) => total + (item.quantity || 0), 0) || 0;
+        
+        // Determinar el nombre del producto principal
+        let mainProduct = 'Venta múltiple';
+        if (sale.items && sale.items.length > 0) {
+          mainProduct = sale.items[0].productName || sale.items[0].name || mainProduct;
+        }
+        
+        return {
+          ...sale,
+          _id: saleId, // Garantizamos que _id exista
+          id: undefined, // Eliminamos el campo id duplicado si existe
+          timestamp: sale.timestamp || Math.floor(Date.now() / 1000),
+          amount: sale.totalAmount || sale.amount || 0,
+          product: mainProduct,
+          quantity: totalQuantity,
+          productId: sale.items?.[0]?.productId || sale.items?.[0]?.id || 'N/A'
+        };
+      });
 
-      // Normalizar datos de ventas
-      const normalizedSales = response.data.map(sale => ({
-        ...sale,
-        _id: sale._id || `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        timestamp: sale.timestamp || Math.floor(Date.now() / 1000),
-        amount: sale.totalAmount || sale.amount || 0,
-        product: sale.items?.[0]?.productName || 'Venta múltiple',
-        quantity: sale.items?.reduce((total, item) => total + (item.quantity || 0), 0) || 0,
-        productId: sale.items?.[0]?.productId || 'N/A'
-      }));
-
+      console.log('Normalized sales:', normalizedSales);
+      
       setSales(normalizedSales);
     } catch (err) {
       console.error('Error fetching sales:', err);
@@ -47,13 +90,30 @@ const SalesList = () => {
     fetchSales();
   }, []);
 
+  // Efecto de diagnóstico: si no hay ventas y ya se cargaron, mostrar estructura
+  useEffect(() => {
+    if (!loading && sales.length === 0) {
+      console.log("Diagnóstico: No se cargaron ventas. Revisa la estructura de la respuesta.");
+    }
+  }, [loading, sales]);
+
   const handleDelete = async (id) => {
+    if (!id) {
+      console.error("Intento de eliminar venta sin ID");
+      setError("No se puede eliminar esta venta porque no tiene un ID válido");
+      return;
+    }
+
     if (window.confirm('¿Estás seguro de eliminar esta venta?')) {
+      setDeletingId(id);
+      
       try {
         await salesAPI.delete(id);
         setSales(prev => prev.filter(sale => sale._id !== id));
       } catch (err) {
         setError(err.response?.data?.message || 'Error al eliminar la venta');
+      } finally {
+        setDeletingId(null);
       }
     }
   };
@@ -65,127 +125,154 @@ const SalesList = () => {
     const term = searchTerm.toLowerCase();
     return (
       (sale._id && sale._id.toLowerCase().includes(term)) ||
+      (sale.id && sale.id.toLowerCase().includes(term)) || // Búsqueda por id alternativo
       (sale.product && sale.product.toLowerCase().includes(term)) ||
       (sale.productId && sale.productId.toLowerCase().includes(term)) ||
-      (sale.timestamp && format(new Date(sale.timestamp * 1000), 'PPP', { locale: es }).toLowerCase().includes(term))
+      (sale.timestamp && new Date(sale.timestamp * 1000).toLocaleDateString('es-ES').toLowerCase().includes(term))
     );
   });
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
-        <div className="flex">
-          <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <div className="ml-3">
-            <p className="text-sm text-red-700">
-              {error}
-              <button 
-                onClick={fetchSales} 
-                className="ml-2 text-sm font-medium text-red-600 hover:text-red-500 focus:outline-none"
-              >
-                Reintentar
-              </button>
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const totalSalesValue = sales.reduce((sum, sale) => sum + (sale.amount || 0), 0);
+  const completedSales = sales.length;
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Historial de Ventas</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {filteredSales.length} {filteredSales.length === 1 ? 'venta' : 'ventas'} registradas
-          </p>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-          <div className="relative flex-grow">
-            <input
-              type="text"
-              placeholder="Buscar ventas..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-            />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center"
-              >
-                <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800 flex items-center">
+              <FiBarChart2 className="mr-3 text-blue-500" />
+              Historial de Ventas
+            </h1>
+            <p className="text-gray-600 mt-1">
+              {completedSales} ventas completadas • ${totalSalesValue.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+            </p>
           </div>
           
-          <button
-            onClick={() => navigate('/vendedor/sales/new')}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition duration-200 flex items-center justify-center"
-          >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            Nueva Venta
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={fetchSales}
+              className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center"
+              disabled={loading}
+            >
+              <FiRefreshCw className={`mr-2 ${loading ? 'animate-spin' : ''}`} /> Actualizar
+            </button>
+            <button
+              onClick={() => navigate('/vendedor/sales/new')}
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-lg hover:from-blue-700 hover:to-indigo-800 transition-all shadow-md hover:shadow-lg flex items-center"
+            >
+              <FiPlus className="mr-2" /> Nueva Venta
+            </button>
+          </div>
         </div>
-      </div>
 
-      {filteredSales.length === 0 ? (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="p-8 text-center">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            <h3 className="mt-2 text-lg font-medium text-gray-900">
-              {searchTerm ? 'No se encontraron ventas' : 'No hay ventas registradas'}
-            </h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {searchTerm ? 'Intenta con otros términos de búsqueda' : 'Comienza creando una nueva venta'}
-            </p>
-            <div className="mt-6">
-              <button
-                onClick={() => navigate('/vendedor/sales/new')}
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                <svg className="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                Nueva Venta
-              </button>
+        {/* Filtros y búsqueda */}
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex-1 max-w-xl">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Buscar ventas por producto, fecha o ID..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <FiSearch className="absolute left-3 top-3.5 text-gray-400" />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"
+                  >
+                    <FiX />
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            <div className="text-sm text-gray-500 bg-blue-50 px-3 py-2 rounded-lg">
+              {filteredSales.length} {filteredSales.length === 1 ? 'resultado' : 'resultados'}
             </div>
           </div>
         </div>
-      ) : (
-        <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-          <ul className="divide-y divide-gray-200">
-            {filteredSales.map((sale) => (
-              <SaleItem
-                key={`sale-${sale._id}`}
-                sale={sale}
-                onDelete={handleDelete}
-                onEdit={() => navigate(`/vendedor/sales/edit/${sale._id}`)}
-              />
-            ))}
-          </ul>
-        </div>
-      )}
+
+        {/* Estado de carga y errores */}
+        {loading && (
+          <div className="flex justify-center items-center h-64 bg-white rounded-xl shadow">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+            <span className="ml-4 text-gray-600">Cargando ventas...</span>
+          </div>
+        )}
+
+        <AnimatePresence>
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded"
+              role="alert"
+            >
+              <p className="flex items-center">
+                {error}
+                <button 
+                  onClick={fetchSales} 
+                  className="ml-4 px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200"
+                >
+                  Reintentar
+                </button>
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Lista de ventas */}
+        {!loading && !error && (
+          <div className="space-y-4">
+            {filteredSales.length === 0 ? (
+              <div className="bg-white rounded-xl shadow-lg p-12 text-center">
+                <div className="mx-auto bg-gray-100 rounded-full p-4 w-16 h-16 flex items-center justify-center mb-4">
+                  <FiShoppingBag className="text-gray-400 text-2xl" />
+                </div>
+                <h3 className="text-xl font-medium text-gray-900 mb-2">
+                  {sales.length === 0 
+                    ? 'No hay ventas registradas' 
+                    : 'No se encontraron ventas con los filtros actuales'}
+                </h3>
+                <p className="text-gray-500 mb-6">
+                  {sales.length === 0 
+                    ? 'Comienza creando una nueva venta' 
+                    : 'Intenta con otros términos de búsqueda'}
+                </p>
+                <button
+                  onClick={() => navigate('/vendedor/sales/new')}
+                  className="px-5 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-lg hover:from-blue-700 hover:to-indigo-800 transition-all shadow-md hover:shadow-lg flex items-center mx-auto"
+                >
+                  <FiPlus className="mr-2" /> Crear nueva venta
+                </button>
+              </div>
+            ) : (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5 }}
+                className="space-y-4"
+              >
+                {filteredSales.map((sale) => (
+                  <SaleItem
+                    key={`sale-${sale._id}`}
+                    sale={sale}
+                    onDelete={handleDelete}
+                    onEdit={() => sale._id && navigate(`/vendedor/sales/edit/${sale._id}`)}
+                    isDeleting={deletingId === sale._id}
+                  />
+                ))}
+              </motion.div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
